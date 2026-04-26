@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "D:/FFmpeg/ffmpeg-7.1/include",
+                "D:/FFmpeg/ffmpeg-7.1/include/**",
+                "D:/MSYS2/mingw64/include",
+                "D:/MSYS2/mingw64/include/SDL2"
+            ],
+            "defines": [],
+            "compilerPath": "E:/win64/mingw64/bin/g++.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
