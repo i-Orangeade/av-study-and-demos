@@ -1,19 +1,21 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "D:/FFmpeg/ffmpeg-7.1/include",
-                "D:/FFmpeg/ffmpeg-7.1/include/**",
-                "D:/MSYS2/mingw64/include",
-                "D:/MSYS2/mingw64/include/SDL2"
+                "/usr/include",
+                "/usr/local/include",
+                "/usr/include/x86_64-linux-gnu",
+                "/usr/include/SDL2",
+                "/usr/local/include/SDL2"
             ],
             "defines": [],
-            "compilerPath": "E:/win64/mingw64/bin/g++.exe",
+            "compilerPath": "/usr/bin/g++",
             "cStandard": "c11",
             "cppStandard": "c++11",
-            "intelliSenseMode": "gcc-x64"
+            "intelliSenseMode": "linux-gcc-x64",
+            "compileCommands": "${workspaceFolder}/Demos/EasyPlayer/build/compile_commands.json"
         }
     ],
     "version": 4
