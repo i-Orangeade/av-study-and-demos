@@ -8,6 +8,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 // FFmpeg 头文件
 extern "C" {
@@ -17,12 +18,19 @@ extern "C" {
 #include <libswresample/swresample.h>
 #include <libavutil/audio_fifo.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/version.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/time.h>
 }
 
 // SDL 头文件
 #include <SDL2/SDL.h>
+
+static std::string ff_err2str(int errnum) {
+    char buf[AV_ERROR_MAX_STRING_SIZE] = {0};
+    av_strerror(errnum, buf, sizeof(buf));
+    return std::string(buf);
+}
 
 // -------------------------- 配置参数 --------------------------
 #define MAX_QUEUE_SIZE 100    // 音视频帧队列最大长度
@@ -199,20 +207,41 @@ void audio_callback(void* userdata, Uint8* stream, int len) {
 bool init_audio() {
     AVCodecParameters* params = g_player.fmt_ctx->streams[g_player.audio_stream_idx]->codecpar;
     const AVCodec* codec = avcodec_find_decoder(params->codec_id);
-    if (!codec) return false;
+    if (!codec) {
+        std::cerr << "音频: 找不到解码器 codec_id=" << params->codec_id << std::endl;
+        return false;
+    }
 
     g_player.audio_ctx = AVCodecContextPtr(avcodec_alloc_context3(codec));
-    if (avcodec_parameters_to_context(g_player.audio_ctx.get(), params) < 0) return false;
-    if (avcodec_open2(g_player.audio_ctx.get(), codec, nullptr) < 0) return false;
+    if (!g_player.audio_ctx) {
+        std::cerr << "音频: avcodec_alloc_context3 失败" << std::endl;
+        return false;
+    }
+    int ret = avcodec_parameters_to_context(g_player.audio_ctx.get(), params);
+    if (ret < 0) {
+        std::cerr << "音频: avcodec_parameters_to_context 失败: " << ff_err2str(ret) << std::endl;
+        return false;
+    }
+    ret = avcodec_open2(g_player.audio_ctx.get(), codec, nullptr);
+    if (ret < 0) {
+        std::cerr << "音频: avcodec_open2 失败: " << ff_err2str(ret) << std::endl;
+        return false;
+    }
 
     g_player.out_sample_rate = g_player.audio_ctx->sample_rate > 0 ? g_player.audio_ctx->sample_rate : 48000;
 
-    // 重采样配置：AAC(常见 FLTP) → S16SYS（FFmpeg 7.x 新 API）
+    // 重采样配置：AAC(常见 FLTP) -> S16SYS。
+#if LIBAVUTIL_VERSION_MAJOR >= 57
     AVChannelLayout out_ch_layout;
     av_channel_layout_default(&out_ch_layout, g_player.out_channels);
 
-    AVChannelLayout in_ch_layout = g_player.audio_ctx->ch_layout;
-    if (in_ch_layout.nb_channels <= 0) {
+    AVChannelLayout in_ch_layout = {};
+    if (g_player.audio_ctx->ch_layout.nb_channels > 0) {
+        if (av_channel_layout_copy(&in_ch_layout, &g_player.audio_ctx->ch_layout) < 0) {
+            av_channel_layout_uninit(&out_ch_layout);
+            return false;
+        }
+    } else {
         av_channel_layout_default(&in_ch_layout, g_player.out_channels);
     }
 
@@ -241,9 +270,36 @@ bool init_audio() {
 
     av_channel_layout_uninit(&in_ch_layout);
     av_channel_layout_uninit(&out_ch_layout);
+#else
+    uint64_t out_ch_layout = av_get_default_channel_layout(g_player.out_channels);
+    uint64_t in_ch_layout = g_player.audio_ctx->channel_layout;
+    if (in_ch_layout == 0) {
+        int in_channels = g_player.audio_ctx->channels > 0 ? g_player.audio_ctx->channels : g_player.out_channels;
+        in_ch_layout = av_get_default_channel_layout(in_channels);
+    }
+
+    SwrContext* swr = swr_alloc_set_opts(
+        nullptr,
+        static_cast<int64_t>(out_ch_layout),
+        g_player.out_sample_fmt,
+        g_player.out_sample_rate,
+        static_cast<int64_t>(in_ch_layout),
+        g_player.audio_ctx->sample_fmt,
+        g_player.audio_ctx->sample_rate,
+        0,
+        nullptr
+    );
+    if (!swr) return false;
+
+    g_player.swr_ctx = SwrContextPtr(swr);
+    if (swr_init(g_player.swr_ctx.get()) < 0) return false;
+#endif
 
     g_player.audio_fifo = av_audio_fifo_alloc(g_player.out_sample_fmt, g_player.out_channels, 1);
-    if (!g_player.audio_fifo) return false;
+    if (!g_player.audio_fifo) {
+        std::cerr << "音频: av_audio_fifo_alloc 失败" << std::endl;
+        return false;
+    }
 
     // SDL 音频
     SDL_AudioSpec want, have;
@@ -256,7 +312,10 @@ bool init_audio() {
     want.userdata = &g_player;
 
     g_player.audio_dev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
-    if (g_player.audio_dev == 0) return false;
+    if (g_player.audio_dev == 0) {
+        std::cerr << "音频: SDL_OpenAudioDevice 失败: " << SDL_GetError() << std::endl;
+        return false;
+    }
 
     SDL_PauseAudioDevice(g_player.audio_dev, 0);
     return true;
@@ -266,11 +325,26 @@ bool init_audio() {
 bool init_video() {
     AVCodecParameters* params = g_player.fmt_ctx->streams[g_player.video_stream_idx]->codecpar;
     const AVCodec* codec = avcodec_find_decoder(params->codec_id);
-    if (!codec) return false;
+    if (!codec) {
+        std::cerr << "视频: 找不到解码器 codec_id=" << params->codec_id << std::endl;
+        return false;
+    }
 
     g_player.video_ctx = AVCodecContextPtr(avcodec_alloc_context3(codec));
-    if (avcodec_parameters_to_context(g_player.video_ctx.get(), params) < 0) return false;
-    if (avcodec_open2(g_player.video_ctx.get(), codec, nullptr) < 0) return false;
+    if (!g_player.video_ctx) {
+        std::cerr << "视频: avcodec_alloc_context3 失败" << std::endl;
+        return false;
+    }
+    int ret = avcodec_parameters_to_context(g_player.video_ctx.get(), params);
+    if (ret < 0) {
+        std::cerr << "视频: avcodec_parameters_to_context 失败: " << ff_err2str(ret) << std::endl;
+        return false;
+    }
+    ret = avcodec_open2(g_player.video_ctx.get(), codec, nullptr);
+    if (ret < 0) {
+        std::cerr << "视频: avcodec_open2 失败: " << ff_err2str(ret) << std::endl;
+        return false;
+    }
 
     // 像素格式转换：YUV420P → RGB24
     g_player.sws_ctx = SwsContextPtr(sws_getContext(
@@ -278,13 +352,25 @@ bool init_video() {
         g_player.video_ctx->width, g_player.video_ctx->height, AV_PIX_FMT_RGB24,
         SWS_BILINEAR, nullptr, nullptr, nullptr
     ));
+    if (!g_player.sws_ctx) {
+        std::cerr << "视频: sws_getContext 失败 (pix_fmt=" << g_player.video_ctx->pix_fmt << ")" << std::endl;
+        return false;
+    }
 
     // RGB 帧
     g_player.rgb_frame = AVFramePtr(av_frame_alloc());
+    if (!g_player.rgb_frame) {
+        std::cerr << "视频: av_frame_alloc 失败" << std::endl;
+        return false;
+    }
     g_player.rgb_frame->format = AV_PIX_FMT_RGB24;
     g_player.rgb_frame->width = g_player.video_ctx->width;
     g_player.rgb_frame->height = g_player.video_ctx->height;
-    av_frame_get_buffer(g_player.rgb_frame.get(), 0);
+    ret = av_frame_get_buffer(g_player.rgb_frame.get(), 0);
+    if (ret < 0) {
+        std::cerr << "视频: av_frame_get_buffer 失败: " << ff_err2str(ret) << std::endl;
+        return false;
+    }
 
     // SDL 窗口/渲染器/纹理
     SDL_CreateWindowAndRenderer(
@@ -292,12 +378,20 @@ bool init_video() {
         SDL_WINDOW_RESIZABLE,
         &g_player.window, &g_player.renderer
     );
+    if (!g_player.window || !g_player.renderer) {
+        std::cerr << "视频: SDL_CreateWindowAndRenderer 失败: " << SDL_GetError() << std::endl;
+        return false;
+    }
     g_player.texture = SDL_CreateTexture(
         g_player.renderer,
         SDL_PIXELFORMAT_RGB24,
         SDL_TEXTUREACCESS_STREAMING,
         g_player.video_ctx->width, g_player.video_ctx->height
     );
+    if (!g_player.texture) {
+        std::cerr << "视频: SDL_CreateTexture 失败: " << SDL_GetError() << std::endl;
+        return false;
+    }
     return true;
 }
 
@@ -388,16 +482,24 @@ int main(int argc, char* argv[]) {
 
     // 初始化 FFmpeg
     avformat_network_init();
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
+        std::cerr << "SDL_Init 失败: " << SDL_GetError() << std::endl;
+        return -1;
+    }
 
     // 打开视频文件
     AVFormatContext* fmt_ctx = nullptr;
-    if (avformat_open_input(&fmt_ctx, argv[1], nullptr, nullptr) < 0) {
-        std::cerr << "打开文件失败" << std::endl;
+    int ret = avformat_open_input(&fmt_ctx, argv[1], nullptr, nullptr);
+    if (ret < 0) {
+        std::cerr << "打开文件失败: " << ff_err2str(ret) << std::endl;
         return -1;
     }
     g_player.fmt_ctx = AVFormatContextPtr(fmt_ctx);
-    avformat_find_stream_info(g_player.fmt_ctx.get(), nullptr);
+    ret = avformat_find_stream_info(g_player.fmt_ctx.get(), nullptr);
+    if (ret < 0) {
+        std::cerr << "读取流信息失败: " << ff_err2str(ret) << std::endl;
+        return -1;
+    }
 
     // 查找音视频流
     for (unsigned int i = 0; i < g_player.fmt_ctx->nb_streams; i++) {
