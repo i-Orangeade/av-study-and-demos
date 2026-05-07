@@ -1,6 +1,12 @@
 # 音视频基础理论与 FFmpeg API 知识库
 
-本文档用于整理音视频开发入门阶段最常见的基础概念，并结合 `Demos/EasyPlayer` 项目说明 FFmpeg 中已经使用到的核心 API，以及后续继续扩展播放器、转码器、录制器时会接触到但当前项目暂未使用的核心 API。
+本文档用于整理音视频开发入门阶段最常见的基础概念，并结合 `Demos/AV-YUV420P-Player`、`Demos/AV-Easy-Player` 和 `Demos/AV-Transcoder` 三个学习项目说明原始视频显示、播放器解码渲染和转码封装中会用到的核心知识点与 FFmpeg API。
+
+这三个 Demo 可以按由浅到深的顺序理解：
+
+- `AV-YUV420P-Player`：不涉及 FFmpeg，直接读取 YUV420P 裸帧并用 SDL2 显示，帮助理解原始视频帧和 YUV 纹理。
+- `AV-Easy-Player`：使用 FFmpeg 解封装和解码，再用 SDL2 播放音频、渲染视频，帮助理解播放器主链路。
+- `AV-Transcoder`：在解码之后继续进行格式转换、编码和 MP4 封装，帮助理解从播放器到转码器的能力扩展。
 
 ## 1. 音频基础理论
 
@@ -57,7 +63,7 @@
 - 5.1 声道：家庭影院常见环绕声格式。
 - 7.1 声道：更复杂的环绕声系统。
 
-声道数越多，空间感越强，但数据量也越大。`EasyPlayer` 中为了简化播放流程，统一将音频输出为双声道 S16 格式。
+声道数越多，空间感越强，但数据量也越大。`AV-Easy-Player` 中为了简化播放流程，统一将音频输出为双声道 S16 格式。
 
 ## 2. PCM 原始音频格式
 
@@ -86,7 +92,7 @@ L0 L1 L2 L3 ...
 R0 R1 R2 R3 ...
 ```
 
-`EasyPlayer` 中使用 `SwrContext` 将解码后的音频转换为 SDL2 更容易播放的 `AV_SAMPLE_FMT_S16`，再写入 `AVAudioFifo`，最后由 SDL2 音频回调拉取播放。
+`AV-Easy-Player` 中使用 `SwrContext` 将解码后的音频转换为 SDL2 更容易播放的 `AV_SAMPLE_FMT_S16`，再写入 `AVAudioFifo`，最后由 SDL2 音频回调拉取播放。
 
 ## 3. 视频基础理论
 
@@ -173,7 +179,7 @@ B 帧：
 - DTS：Decode Timestamp，解码时间戳。
 - PTS：Presentation Timestamp，显示时间戳。
 
-播放器渲染视频时通常更关心 PTS，因为它决定帧应该在什么时候显示。`EasyPlayer` 中使用 `best_effort_timestamp` 计算视频帧显示时间。
+播放器渲染视频时通常更关心 PTS，因为它决定帧应该在什么时候显示。`AV-Easy-Player` 中使用 `best_effort_timestamp` 计算视频帧显示时间。
 
 ## 4. YUV 与 RGB 色彩空间
 
@@ -243,7 +249,7 @@ VVVVVV...
 
 视频解码器输出的常见格式可能是 YUV420P、NV12、YUVJ420P 等，而 SDL2 的纹理或显示流程可能更适合 RGB24、RGBA 或 YUV 纹理。
 
-`EasyPlayer` 中使用 FFmpeg 的 `libswscale` 完成像素格式转换：
+`AV-Easy-Player` 中使用 FFmpeg 的 `libswscale` 完成像素格式转换：
 
 ```text
 输入：解码后的原始视频帧，例如 YUV420P
@@ -335,9 +341,9 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 
 同一种封装格式可以装不同编码格式，同一种编码格式也可以放进不同封装格式中。
 
-## 6. EasyPlayer 中涉及到的 FFmpeg 模块
+## 6. AV-Easy-Player 中涉及到的 FFmpeg 模块
 
-`EasyPlayer` 当前主要使用了以下 FFmpeg 模块：
+`AV-Easy-Player` 当前主要使用了以下 FFmpeg 模块：
 
 - `libavformat`：负责打开媒体文件、读取封装信息、读取音视频 packet。
 - `libavcodec`：负责查找解码器、创建解码上下文、音视频解码。
@@ -345,7 +351,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 - `libswscale`：负责视频像素格式转换。
 - `libavutil`：提供基础数据结构、时间基转换、音频 FIFO、采样格式、声道布局等工具能力。
 
-## 7. EasyPlayer 中已经使用的 FFmpeg 核心 API
+## 7. AV-Easy-Player 中已经使用的 FFmpeg 核心 API
 
 ### 7.1 初始化与输入文件
 
@@ -367,7 +373,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `avformat_close_input`
 
 - 关闭输入文件并释放 `AVFormatContext`。
-- `EasyPlayer` 中通过智能指针删除器间接调用。
+- `AV-Easy-Player` 中通过智能指针删除器间接调用。
 
 ### 7.2 流与编码参数
 
@@ -379,12 +385,12 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `AVStream`
 
 - 表示容器中的一路媒体流，例如一路视频、一路音频或一路字幕。
-- `EasyPlayer` 通过遍历 `fmt_ctx->streams` 查找音频流和视频流。
+- `AV-Easy-Player` 通过遍历 `fmt_ctx->streams` 查找音频流和视频流。
 
 `AVCodecParameters`
 
 - 保存编码参数，例如 codec id、宽高、采样率、声道布局等。
-- `EasyPlayer` 使用它来创建和初始化 `AVCodecContext`。
+- `AV-Easy-Player` 使用它来创建和初始化 `AVCodecContext`。
 
 ### 7.3 解码器
 
@@ -416,7 +422,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `avcodec_free_context`
 
 - 释放 `AVCodecContext`。
-- `EasyPlayer` 中通过智能指针删除器间接调用。
+- `AV-Easy-Player` 中通过智能指针删除器间接调用。
 
 ### 7.4 Packet 与 Frame
 
@@ -450,7 +456,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `av_frame_clone`
 
 - 克隆一个 frame 引用。
-- `EasyPlayer` 中用于把解码出的 `vframe` 放入视频队列。
+- `AV-Easy-Player` 中用于把解码出的 `vframe` 放入视频队列。
 
 `av_frame_unref`
 
@@ -463,7 +469,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `av_frame_get_buffer`
 
 - 为 frame 分配实际数据缓冲区。
-- `EasyPlayer` 中用于给 RGB 输出帧分配缓冲。
+- `AV-Easy-Player` 中用于给 RGB 输出帧分配缓冲。
 
 ### 7.5 读取媒体包
 
@@ -472,7 +478,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 - 从输入媒体中读取下一个 `AVPacket`。
 - 读取出的 packet 可能属于音频流、视频流、字幕流或其他流。
 
-`EasyPlayer` 根据 `pkt->stream_index` 判断 packet 属于音频还是视频，然后送入对应解码器。
+`AV-Easy-Player` 根据 `pkt->stream_index` 判断 packet 属于音频还是视频，然后送入对应解码器。
 
 ### 7.6 时间戳与时间基
 
@@ -484,7 +490,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `av_q2d`
 
 - 将 `AVRational` 转为 `double`。
-- `EasyPlayer` 用它将时间戳转换为秒。
+- `AV-Easy-Player` 用它将时间戳转换为秒。
 
 `AV_NOPTS_VALUE`
 
@@ -498,7 +504,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `av_rescale_rnd`
 
 - 按比例换算整数并支持指定取整方式。
-- `EasyPlayer` 中用于计算重采样后的目标采样数量。
+- `AV-Easy-Player` 中用于计算重采样后的目标采样数量。
 
 ### 7.7 音频重采样
 
@@ -506,6 +512,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 
 - FFmpeg 新版本中表示声道布局的结构。
 - 比旧版 `channel_layout` 更清晰。
+- `AV-Easy-Player` 中会在 `LIBAVUTIL_VERSION_MAJOR >= 57` 时使用这一套新 API。
 
 `av_channel_layout_default`
 
@@ -518,7 +525,26 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `swr_alloc_set_opts2`
 
 - 创建并配置 `SwrContext`。
-- `EasyPlayer` 用它将输入音频转换为双声道 S16。
+- `AV-Easy-Player` 用它将输入音频转换为双声道 S16。
+- 这是较新 FFmpeg 版本推荐使用的重采样配置接口。
+
+`channel_layout`
+
+- FFmpeg 旧版本中常见的声道布局字段，类型通常是整数 bitmask。
+- `AV-Transcoder` 当前为了兼容本机 FFmpeg 4.x，使用 `AVCodecContext::channel_layout` 和 `AVFrame::channel_layout`。
+- 如果输入流没有有效 `channel_layout`，可以通过 `av_get_default_channel_layout(channels)` 根据声道数生成默认布局。
+
+`swr_alloc_set_opts`
+
+- 旧版 `SwrContext` 配置接口。
+- 参数中直接传入输入/输出声道布局、采样格式和采样率。
+- `AV-Transcoder` 当前使用它完成输入音频到 AAC 编码器兼容格式的转换。
+
+版本兼容建议：
+
+- 如果项目依赖较新的 FFmpeg，可以优先使用 `AVChannelLayout` 和 `swr_alloc_set_opts2`。
+- 如果需要兼容 Ubuntu 20.04 常见的 FFmpeg 4.x，则仍然需要处理 `channel_layout`、`channels` 和 `swr_alloc_set_opts`。
+- 同一个学习项目中看到两套 API 并不矛盾，本质上都是在描述“输入音频格式如何转换为输出音频格式”。
 
 `swr_init`
 
@@ -585,15 +611,15 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 `sws_scale`
 
 - 执行图像转换。
-- `EasyPlayer` 中用于将解码后的视频帧转换为 RGB24。
+- `AV-Easy-Player` 中用于将解码后的视频帧转换为 RGB24。
 
 `sws_freeContext`
 
 - 释放 `SwsContext`。
 
-## 8. EasyPlayer 当前没有涉及到的 FFmpeg 核心 API
+## 8. AV-Easy-Player 未涉及但 AV-Transcoder 已涉及的 FFmpeg 核心 API
 
-下面这些 API 在音视频开发中也很常见，但当前 `EasyPlayer` 还没有使用。它们通常会出现在转码、录制、推流、滤镜、硬件加速、seek、截图等更复杂的场景中。
+下面这些 API 在音视频开发中也很常见，`AV-Easy-Player` 作为播放器 Demo 主要负责输入、解码和播放，所以没有使用输出封装和编码相关 API。`AV-Transcoder` 已经覆盖了其中一部分，用来完成 H.264 + AAC 的 MP4 输出。滤镜、硬件加速、seek、截图等能力仍属于后续扩展方向。
 
 ### 8.1 输出文件、封装与转码
 
@@ -601,18 +627,22 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 
 - 创建输出封装上下文。
 - 用于生成 MP4、FLV、MKV、TS 等输出文件或输出流。
+- `AV-Transcoder` 中用于创建 MP4 输出上下文。
 
 `avformat_new_stream`
 
 - 在输出容器中创建一路新的音频流或视频流。
+- `AV-Transcoder` 中分别创建输出视频流和输出音频流。
 
 `avio_open`
 
 - 打开输出文件或网络输出地址。
+- `AV-Transcoder` 中用于打开目标 MP4 文件。
 
 `avformat_write_header`
 
 - 写入输出文件头。
+- MP4、FLV 等容器在写入媒体 packet 之前通常需要先写文件头。
 
 `av_write_frame`
 
@@ -623,16 +653,19 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 
 - 写入一个 packet，并由 FFmpeg 帮助处理音视频交错。
 - 实际写文件或推流时更常用。
+- `AV-Transcoder` 使用它写入编码后的 H.264/AAC packet。
 
 `av_write_trailer`
 
 - 写入文件尾，完成封装。
+- 对 MP4 很重要，文件尾和索引信息不完整时，播放器可能无法正常打开输出文件。
 
 ### 8.2 编码
 
 `avcodec_find_encoder`
 
 - 查找编码器，例如 H.264、AAC 编码器。
+- `AV-Transcoder` 中用于查找 H.264 和 AAC 编码器，其中 H.264 优先尝试 `libx264`。
 
 `avcodec_send_frame`
 
@@ -643,6 +676,18 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 - 从编码器取出压缩后的 `AVPacket`。
 
 这些 API 和解码 API 的方向相反。解码是 `AVPacket -> AVFrame`，编码是 `AVFrame -> AVPacket`。
+
+`avcodec_parameters_from_context`
+
+- 将编码器上下文中的参数写回输出流的 `AVCodecParameters`。
+- 输出封装器需要这些参数写文件头，例如编码格式、宽高、采样率、声道数等。
+- `AV-Transcoder` 中在打开编码器之后调用它配置输出流。
+
+`av_packet_rescale_ts`
+
+- 在不同 time_base 之间转换 packet 的 PTS、DTS 和 duration。
+- 编码器产生 packet 时使用编码器 time_base，写入输出容器前通常要转换到输出流 time_base。
+- `AV-Transcoder` 中在 `av_interleaved_write_frame` 前调用它。
 
 ### 8.3 seek 与播放控制
 
@@ -659,7 +704,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 
 - seek 后清空解码器内部缓存，避免旧帧影响新位置播放。
 
-如果 `EasyPlayer` 后续要增加进度条拖动功能，就需要引入 seek API，并处理队列清空、音频时钟重置、解码器 flush 等逻辑。
+如果 `AV-Easy-Player` 后续要增加进度条拖动功能，就需要引入 seek API，并处理队列清空、音频时钟重置、解码器 flush 等逻辑。
 
 ### 8.4 滤镜
 
@@ -769,7 +814,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 
 打开网络流、设置编码器参数、设置封装器参数时经常会用到 `AVDictionary`。
 
-## 9. EasyPlayer 的技术链路总结
+## 9. AV-Easy-Player 的技术链路总结
 
 当前项目的核心链路可以概括为：
 
@@ -784,7 +829,7 @@ H.264 / H.265 / AAC / MP3 = 编码方式
   -> 视频：视频帧队列 -> sws_scale -> SDL2 纹理渲染
 ```
 
-从学习角度看，`EasyPlayer` 已经覆盖了播放器最关键的基础能力：
+从学习角度看，`AV-Easy-Player` 已经覆盖了播放器最关键的基础能力：
 
 - 读封装。
 - 找音视频流。
@@ -811,12 +856,204 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 
 1. 理解 PCM、采样率、位深、声道数。
 2. 理解 RGB、YUV、YUV420P 和像素格式转换。
-3. 理解封装格式和编码格式的区别。
-4. 学习 FFmpeg 的 `AVFormatContext`、`AVStream`、`AVPacket`、`AVFrame`。
-5. 学习解码流程：`av_read_frame`、`avcodec_send_packet`、`avcodec_receive_frame`。
-6. 学习音频重采样：`SwrContext` 和 `swr_convert`。
-7. 学习视频转换：`SwsContext` 和 `sws_scale`。
-8. 学习时间戳、time_base、PTS、DTS 和音视频同步。
-9. 学习 seek、滤镜、编码、封装和推流等进阶主题。
+3. 运行 `AV-YUV420P-Player`，观察裸 YUV 文件如何按宽高和帧率显示。
+4. 理解封装格式和编码格式的区别。
+5. 学习 FFmpeg 的 `AVFormatContext`、`AVStream`、`AVPacket`、`AVFrame`。
+6. 运行 `AV-Easy-Player`，理解解封装、解码、重采样、像素格式转换和 SDL2 播放渲染。
+7. 学习时间戳、time_base、PTS、DTS 和音视频同步。
+8. 运行 `AV-Transcoder`，理解解码后的 `AVFrame` 如何继续送入编码器并封装为 MP4。
+9. 学习 seek、滤镜、硬件加速、录制、推流等进阶主题。
 
-掌握这些内容后，就可以从简单播放器继续扩展到转码器、录屏工具、直播推流器、视频处理工具等更完整的音视频应用。
+这三个 Demo 对应的学习层次可以概括为：
+
+```text
+AV-YUV420P-Player
+  -> 原始视频帧显示：YUV420P -> SDL2 YUV Texture
+
+AV-Easy-Player
+  -> 播放器链路：封装文件 -> 解封装 -> 解码 -> 音频播放 / 视频渲染
+
+AV-Transcoder
+  -> 转码链路：封装文件 -> 解封装 -> 解码 -> 转格式 -> 编码 -> 重新封装
+```
+
+掌握这些内容后，就可以继续扩展到截图、滤镜、录屏工具、直播推流器、HLS 分片器、视频处理工具等更完整的音视频应用。
+
+## 11. AV-YUV420P-Player 相关知识点
+
+`Demos/AV-YUV420P-Player` 用来学习原始 YUV420P 视频数据如何显示。它没有使用 FFmpeg 解封装或解码，而是直接读取裸 YUV 文件，因此需要用户手动提供宽、高和帧率。
+
+### 11.1 裸 YUV 文件为什么需要手动传参
+
+`.yuv` 裸数据文件通常只保存一帧接一帧的像素数据，不包含封装头、编码参数或时间戳信息。
+
+播放器无法从文件本身知道：
+
+- 图像宽度。
+- 图像高度。
+- 像素格式。
+- 帧率。
+- 总时长。
+
+所以运行 YUV 播放器时必须传入这些参数。如果宽高传错，即使文件本身没问题，也会因为按错误步长切分 Y、U、V 平面而出现花屏、错位或颜色异常。
+
+### 11.2 YUV420P 与 SDL2 YUV 纹理
+
+SDL2 支持 `SDL_PIXELFORMAT_IYUV`，它对应的内存布局就是常见的 YUV420P/I420：
+
+```text
+Y plane: W * H
+U plane: W / 2 * H / 2
+V plane: W / 2 * H / 2
+```
+
+因此 YUV420P 播放器可以直接调用 `SDL_UpdateYUVTexture`，分别传入 Y、U、V 三个平面的地址和 stride，不需要先转换成 RGB。
+
+这条链路比 “YUV -> RGB -> SDL RGB Texture” 更接近真实播放器中的渲染优化思路：很多播放器会尽量保留 YUV 数据，由渲染层或 GPU 完成后续颜色转换。
+
+需要注意 `SDL_PIXELFORMAT_IYUV` 和 `SDL_PIXELFORMAT_YV12` 的区别：
+
+- `IYUV` / `I420` 的平面顺序是 Y、U、V。
+- `YV12` 的平面顺序是 Y、V、U。
+- 如果纹理格式和平面顺序不匹配，画面亮度可能正常，但颜色会明显异常。
+
+`AV-YUV420P-Player` 使用 `SDL_UpdateYUVTexture` 时传入的 stride 是：
+
+- Y 平面 stride：`width`。
+- U 平面 stride：`width / 2`。
+- V 平面 stride：`width / 2`。
+
+这里的 stride 表示一行像素数据在内存中占用多少字节。当前 Demo 读取的是紧密排列的裸 YUV 文件，所以 stride 和平面宽度相同。真实解码器输出的 `AVFrame` 里，`linesize` 可能因为内存对齐大于图像宽度，不能简单假设等于 width。
+
+### 11.3 播放裸流的基本流程
+
+YUV 播放器的核心链路可以概括为：
+
+```text
+打开 .yuv 文件
+  -> 按 W * H * 1.5 读取一帧
+  -> 切分 Y/U/V 三个平面
+  -> SDL_UpdateYUVTexture
+  -> SDL_RenderCopy
+  -> SDL_RenderPresent
+  -> 按 fps 控制下一帧显示时间
+```
+
+当前 Demo 使用简单 sleep 控制帧率，适合学习，但不适合生产播放器。真实播放器需要结合 PTS、音频时钟、渲染耗时和系统时钟来决定每帧显示时间。
+
+## 12. AV-Transcoder 相关知识点
+
+`Demos/AV-Transcoder` 用来学习最基础的转码链路：输入媒体文件经过解封装、解码、格式转换、编码和封装，最终输出 H.264 + AAC 的 MP4 文件。
+
+### 12.1 转封装、转码与转格式
+
+转封装 remux：
+
+- 只改变容器格式，不重新编码音视频。
+- 典型链路是 `av_read_frame -> av_interleaved_write_frame`。
+- 速度快，画质无损，但要求目标容器支持原始编码格式。
+
+转码 transcode：
+
+- 需要先解码为原始音视频帧，再重新编码。
+- 典型链路是 `AVPacket -> AVFrame -> AVPacket`。
+- 可以改变编码格式、码率、分辨率、采样率等，但会消耗更多 CPU，并可能产生画质损失。
+
+转格式 convert：
+
+- 常指原始帧层面的像素格式转换或音频采样格式转换。
+- 视频常用 `libswscale`，音频常用 `libswresample`。
+
+### 12.2 视频转码基本链路
+
+视频从任意输入格式转为 H.264 + YUV420P 的基础流程：
+
+```text
+av_read_frame
+  -> avcodec_send_packet
+  -> avcodec_receive_frame
+  -> sws_scale 转为 YUV420P
+  -> avcodec_send_frame
+  -> avcodec_receive_packet
+  -> av_interleaved_write_frame
+```
+
+H.264 编码器通常要求输入像素格式为 YUV420P 或其他特定格式。为了保证 MP4 输出兼容性，学习 Demo 中统一转成 YUV420P。
+
+`AV-Transcoder` 中视频编码器初始化时还会设置一些基础参数：
+
+- `width` / `height`：输出视频分辨率，当前沿用输入视频。
+- `pix_fmt`：输出像素格式，当前为 `AV_PIX_FMT_YUV420P`。
+- `time_base`：编码器时间基，当前根据输入帧率推导。
+- `framerate`：编码器帧率。
+- `bit_rate`：视频码率，当前固定为 2 Mbps。
+- `gop_size`：关键帧间隔，当前固定为 50。
+- `max_b_frames`：B 帧数量，当前固定为 2。
+
+如果使用 `libx264`，Demo 会设置 `preset=veryfast`，用于在编码速度和压缩效率之间做一个偏向速度的取舍。
+
+### 12.3 音频转码基本链路
+
+音频从任意输入格式转为 AAC 的基础流程：
+
+```text
+av_read_frame
+  -> avcodec_send_packet
+  -> avcodec_receive_frame
+  -> swr_convert 重采样/转采样格式/转声道布局
+  -> AVAudioFifo 缓存固定数量样本
+  -> avcodec_send_frame
+  -> avcodec_receive_packet
+  -> av_interleaved_write_frame
+```
+
+AAC 编码器通常按固定样本数编码，例如一帧 1024 个采样点。输入解码出来的音频帧不一定刚好满足编码器要求，所以 Demo 使用 `AVAudioFifo` 先缓存，再按编码器期望的帧大小送入。
+
+`AV-Transcoder` 中音频编码器初始化时会设置：
+
+- `sample_rate`：采样率，优先沿用输入音频，异常时回退到 48000。
+- `sample_fmt`：采样格式，选择 AAC 编码器支持的第一个格式。
+- `channel_layout` / `channels`：声道布局和声道数，兼容 FFmpeg 4.x 旧 API。
+- `bit_rate`：音频码率，当前固定为 128 Kbps。
+- `time_base`：通常设置为 `{1, sample_rate}`。
+
+这里和 `AV-Easy-Player` 的区别是：播放器重采样的目标是 SDL2 方便播放的 PCM S16；转码器重采样的目标是 AAC 编码器方便编码的采样格式、采样率和声道布局。
+
+### 12.4 输出 MP4 的关键 API
+
+输出文件相关 API：
+
+- `avformat_alloc_output_context2`：创建 MP4 输出上下文。
+- `avformat_new_stream`：为输出文件创建视频流和音频流。
+- `avcodec_parameters_from_context`：把编码器参数写入输出流。
+- `avio_open`：打开输出文件。
+- `avformat_write_header`：写入 MP4 文件头。
+- `av_interleaved_write_frame`：按交错方式写入音视频 packet。
+- `av_write_trailer`：写入文件尾，完成输出文件。
+
+MP4 对时间戳、全局头和音视频交错比较敏感。学习 Demo 已经包含最小可用处理，但复杂输入、可变帧率、B 帧重排、异常时间戳等生产场景还需要更严谨的时间戳管理。
+
+### 12.5 三个 Demo 中 Frame 的去向
+
+理解三个项目时，可以重点观察 `AVFrame` 的去向：
+
+```text
+AV-YUV420P-Player:
+  文件中的裸 YUV 数据
+    -> SDL_UpdateYUVTexture
+    -> SDL_RenderPresent
+
+AV-Easy-Player:
+  AVPacket
+    -> 解码得到 AVFrame
+    -> 音频：swr_convert -> AVAudioFifo -> SDL2 音频回调
+    -> 视频：sws_scale -> SDL_Texture -> SDL_RenderPresent
+
+AV-Transcoder:
+  AVPacket
+    -> 解码得到 AVFrame
+    -> 视频：sws_scale -> 编码器 -> AVPacket -> MP4
+    -> 音频：swr_convert -> AVAudioFifo -> 编码器 -> AVPacket -> MP4
+```
+
+从这个角度看，播放器和转码器的前半段很像，都是“读 packet 并解码成 frame”。区别在后半段：播放器把 frame 交给音频设备和窗口显示，转码器把 frame 交给编码器并写入新文件。

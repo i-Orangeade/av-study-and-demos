@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(av_player)
+project(av_easy_player)
 
 # C++11 标准
 set(CMAKE_CXX_STANDARD 11)
@@ -24,10 +24,10 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 
 # 编译可执行文件
-add_executable(av_player main.cpp)
+add_executable(av_easy_player main.cpp)
 
 # 链接库
-target_link_libraries(av_player PRIVATE
+target_link_libraries(av_easy_player PRIVATE
     PkgConfig::FFMPEG
     PkgConfig::SDL2
     Threads::Threads
