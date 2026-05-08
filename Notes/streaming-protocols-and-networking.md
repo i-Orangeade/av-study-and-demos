@@ -445,6 +445,60 @@ HTTP GET
   -> ...
 ```
 
+FLV 文件由 Header 和连续的 Tag 组成：
+
+```text
+FLV Header
+PreviousTagSize0
+Tag Header + Tag Data + PreviousTagSize
+Tag Header + Tag Data + PreviousTagSize
+...
+```
+
+常见 Tag 类型：
+
+- `8`：Audio Tag。
+- `9`：Video Tag。
+- `18`：Script/Data Tag，常用于 metadata。
+
+FLV Tag Header 固定 11 字节：
+
+```text
+TagType          1 byte
+DataSize         3 bytes
+Timestamp        3 bytes
+TimestampExt     1 byte
+StreamID         3 bytes
+```
+
+Video Tag 中常见 AVC 数据格式：
+
+```text
+FrameType + CodecID  1 byte
+AVCPacketType        1 byte
+CompositionTime      3 bytes
+AVC payload
+```
+
+`AVCPacketType` 常见取值：
+
+- `0`：AVC sequence header，通常包含 SPS/PPS。
+- `1`：AVC NALU 数据。
+- `2`：AVC end of sequence。
+
+Audio Tag 中常见 AAC 数据格式：
+
+```text
+SoundFormat/SoundRate/SoundSize/SoundType  1 byte
+AACPacketType                              1 byte
+AAC payload
+```
+
+`AACPacketType` 常见取值：
+
+- `0`：AAC sequence header，包含 AudioSpecificConfig。
+- `1`：AAC raw frame。
+
 HTTP-FLV 和 RTMP 对比：
 
 - RTMP：基于 TCP 私有协议，延迟低，传统直播推流常见。
@@ -478,6 +532,27 @@ HLS 工作原理：
 - `EXT-X-ENDLIST`：点播列表结束标记，直播通常没有。
 
 HLS 自适应码率依赖主 M3U8 中的多路子 playlist。播放器会根据带宽、缓冲和解码能力选择不同清晰度，并在播放过程中切换。
+
+MPEG-TS 常用于 HLS 切片。TS 的特点是固定包长，每个 TS 包 188 字节，适合传输和容错。
+
+TS 基本结构：
+
+```text
+TS packet: 188 bytes
+  -> Header: 4 bytes
+  -> Adaptation Field: optional
+  -> Payload: PES / PSI data
+```
+
+关键概念：
+
+- Sync Byte：固定为 `0x47`，用于包同步。
+- PID：标识 TS 包属于哪一路数据。
+- PAT：Program Association Table，描述节目号到 PMT PID 的映射。
+- PMT：Program Map Table，描述节目中有哪些音视频流以及各自 PID。
+- PES：Packetized Elementary Stream，承载编码后的音视频数据。
+
+HLS 播放器下载 TS 切片后，需要先解析 TS 包，找到 PAT/PMT，再根据 PID 提取音视频 PES，最后送入解码器。学习版 `HLS-Player` 当前先聚焦 M3U8 和切片调度，TS 解封装可以作为下一步扩展。
 
 ## 12. RTSP 与 RTP
 

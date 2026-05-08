@@ -884,104 +884,25 @@ AV-Transcoder
 
 掌握这些内容后，就可以继续扩展到截图、滤镜、录屏工具、直播推流器、HLS 分片器、视频处理工具等更完整的音视频应用。
 
-## 10.1 FLV、H.264 Annex-B 与 AAC ADTS
+## 10.1 H.264 Annex-B 与 AAC ADTS
 
-`Network-Demos/FLV-Parser` 用于学习 FLV 文件结构和裸流导出。FLV 常见于 RTMP 和 HTTP-FLV 场景，直播流中经常承载 H.264 视频和 AAC 音频。
+`AV-Demux-Extractor` 和 `Network-Demos/FLV-Parser` 都会涉及裸流导出。这里保留和音视频码流本身直接相关的两类知识：H.264 Annex-B 和 AAC ADTS。FLV Tag、RTMP、HTTP-FLV、TS/HLS 等传输或容器细节放在 `Notes/streaming-protocols-and-networking.md` 中。
 
-FLV 文件由 Header 和连续的 Tag 组成：
+H.264 在 MP4、FLV 等容器中常见存储方式是 AVCC 格式，每个 NALU 前面是长度字段：
 
 ```text
-FLV Header
-PreviousTagSize0
-Tag Header + Tag Data + PreviousTagSize
-Tag Header + Tag Data + PreviousTagSize
-...
+NALU length + NALU data
 ```
 
-常见 Tag 类型：
-
-- `8`：Audio Tag。
-- `9`：Video Tag。
-- `18`：Script/Data Tag，常用于 metadata。
-
-H.264 在 FLV 中通常使用 AVCC 格式，每个 NALU 前面是长度字段；而 `.h264` 裸流常用 Annex-B 格式，每个 NALU 前面是 start code：
+而 `.h264` 裸流通常使用 Annex-B 格式，每个 NALU 前面是 start code：
 
 ```text
 00 00 00 01 + NALU
 ```
 
-因此从 FLV 导出 H.264 裸流时，需要把长度前缀改写为 start code，并从 AVC sequence header 中提取 SPS/PPS。
+因此从 MP4 或 FLV 导出 H.264 裸流时，需要把长度前缀改写为 start code，并正确写出 SPS/PPS。`AV-Demux-Extractor` 使用 FFmpeg 的 `h264_mp4toannexb` bitstream filter 完成这一步。
 
-AAC 在 FLV 中通常不带 ADTS 头。导出 `.aac` 文件时，需要根据 AAC sequence header 中的 profile、sample rate index 和 channel config 给每个 AAC raw frame 补 ADTS header。
-
-### 10.2 FLV Tag 细节
-
-FLV Tag Header 固定 11 字节：
-
-```text
-TagType          1 byte
-DataSize         3 bytes
-Timestamp        3 bytes
-TimestampExt     1 byte
-StreamID         3 bytes
-```
-
-Tag 类型：
-
-- Audio Tag：`TagType = 8`。
-- Video Tag：`TagType = 9`。
-- Script Data Tag：`TagType = 18`。
-
-Video Tag 中常见 AVC 数据格式：
-
-```text
-FrameType + CodecID  1 byte
-AVCPacketType        1 byte
-CompositionTime      3 bytes
-AVC payload
-```
-
-`AVCPacketType` 常见取值：
-
-- `0`：AVC sequence header，通常包含 SPS/PPS。
-- `1`：AVC NALU 数据。
-- `2`：AVC end of sequence。
-
-Audio Tag 中常见 AAC 数据格式：
-
-```text
-SoundFormat/SoundRate/SoundSize/SoundType  1 byte
-AACPacketType                              1 byte
-AAC payload
-```
-
-`AACPacketType` 常见取值：
-
-- `0`：AAC sequence header，包含 AudioSpecificConfig。
-- `1`：AAC raw frame。
-
-### 10.3 TS 封装基础
-
-MPEG-TS 常用于 HLS 切片。TS 的特点是固定包长，每个 TS 包 188 字节，适合传输和容错。
-
-TS 基本结构：
-
-```text
-TS packet: 188 bytes
-  -> Header: 4 bytes
-  -> Adaptation Field: optional
-  -> Payload: PES / PSI data
-```
-
-关键概念：
-
-- Sync Byte：固定为 `0x47`，用于包同步。
-- PID：标识 TS 包属于哪一路数据。
-- PAT：Program Association Table，描述节目号到 PMT PID 的映射。
-- PMT：Program Map Table，描述节目中有哪些音视频流以及各自 PID。
-- PES：Packetized Elementary Stream，承载编码后的音视频数据。
-
-HLS 播放器下载 TS 切片后，需要先解析 TS 包，找到 PAT/PMT，再根据 PID 提取音视频 PES，最后送入解码器。学习版 `HLS-Player` 当前先聚焦 M3U8 和切片调度，TS 解封装可以作为下一步扩展。
+AAC 在 MP4 和 FLV 中通常不带 ADTS 头。导出独立 `.aac` 文件时，需要根据 AudioSpecificConfig 中的 profile、sample rate index 和 channel config 给每个 AAC raw frame 补 ADTS header。
 
 ## 11. AV-YUV420P-Player 相关知识点
 
