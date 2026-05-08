@@ -177,8 +177,8 @@ cmake --build build
 也可以在仓库根目录执行：
 
 ```bash
-cmake -S Demos/AV-Transcoder -B Demos/AV-Transcoder/build
-cmake --build Demos/AV-Transcoder/build
+cmake -S AV-Demos/AV-Transcoder -B AV-Demos/AV-Transcoder/build
+cmake --build AV-Demos/AV-Transcoder/build
 ```
 
 构建成功后，会在 `build` 目录下生成可执行文件：

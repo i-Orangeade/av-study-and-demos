@@ -30,8 +30,8 @@ void printUsage(const char* program) {
         << "  " << program << " server [port]\n"
         << "  " << program << " client [host] [port]\n\n"
         << "Build:\n"
-        << "  cmake -S Demos/AV-Net-TCP-Echo -B Demos/AV-Net-TCP-Echo/build\n"
-        << "  cmake --build Demos/AV-Net-TCP-Echo/build\n";
+        << "  cmake -S Network-Demos/AV-Net-TCP-Echo -B Network-Demos/AV-Net-TCP-Echo/build\n"
+        << "  cmake --build Network-Demos/AV-Net-TCP-Echo/build\n";
 }
 
 int parsePort(const char* text) {

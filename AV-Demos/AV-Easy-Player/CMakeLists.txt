@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(av_easy_player)
 
-# C++11 标准
-set(CMAKE_CXX_STANDARD 11)
+# C++17 标准
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 

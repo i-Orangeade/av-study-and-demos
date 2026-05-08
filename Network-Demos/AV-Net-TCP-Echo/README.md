@@ -130,8 +130,8 @@ cmake --build build
 也可以在仓库根目录执行：
 
 ```bash
-cmake -S Demos/AV-Net-TCP-Echo -B Demos/AV-Net-TCP-Echo/build
-cmake --build Demos/AV-Net-TCP-Echo/build
+cmake -S Network-Demos/AV-Net-TCP-Echo -B Network-Demos/AV-Net-TCP-Echo/build
+cmake --build Network-Demos/AV-Net-TCP-Echo/build
 ```
 
 构建成功后，会在 `build` 目录下生成可执行文件：
@@ -157,8 +157,8 @@ build/av_net_tcp_echo
 如果从仓库根目录运行，可以使用：
 
 ```bash
-./Demos/AV-Net-TCP-Echo/build/av_net_tcp_echo server 9000
-./Demos/AV-Net-TCP-Echo/build/av_net_tcp_echo client 127.0.0.1 9000
+./Network-Demos/AV-Net-TCP-Echo/build/av_net_tcp_echo server 9000
+./Network-Demos/AV-Net-TCP-Echo/build/av_net_tcp_echo client 127.0.0.1 9000
 ```
 
 客户端启动后输入任意文本并回车：

@@ -136,8 +136,8 @@ cmake --build build
 也可以在仓库根目录执行：
 
 ```bash
-cmake -S Demos/AV-YUV420P-Player -B Demos/AV-YUV420P-Player/build
-cmake --build Demos/AV-YUV420P-Player/build
+cmake -S AV-Demos/AV-YUV420P-Player -B AV-Demos/AV-YUV420P-Player/build
+cmake --build AV-Demos/AV-YUV420P-Player/build
 ```
 
 构建成功后，会在 `build` 目录下生成可执行文件：
@@ -169,7 +169,7 @@ ffmpeg -i input.mp4 -pix_fmt yuv420p -s 640x360 test_640x360.yuv
 也可以从仓库根目录运行：
 
 ```bash
-./Demos/AV-YUV420P-Player/build/av_yuv420p_player Demos/AV-YUV420P-Player/build/test_640x360.yuv 640 360 25
+./AV-Demos/AV-YUV420P-Player/build/av_yuv420p_player AV-Demos/AV-YUV420P-Player/build/test_640x360.yuv 640 360 25
 ```
 
 ## 项目结构

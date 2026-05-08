@@ -178,8 +178,8 @@ cmake --build build
 也可以在仓库根目录执行：
 
 ```bash
-cmake -S Demos/HTTP-File-Downloader -B Demos/HTTP-File-Downloader/build
-cmake --build Demos/HTTP-File-Downloader/build
+cmake -S Network-Demos/HTTP-File-Downloader -B Network-Demos/HTTP-File-Downloader/build
+cmake --build Network-Demos/HTTP-File-Downloader/build
 ```
 
 构建成功后，会在 `build` 目录下生成可执行文件：
@@ -207,7 +207,7 @@ build/http_file_downloader
 如果从仓库根目录运行，可以使用：
 
 ```bash
-./Demos/HTTP-File-Downloader/build/http_file_downloader http://example.com/index.html index.html
+./Network-Demos/HTTP-File-Downloader/build/http_file_downloader http://example.com/index.html index.html
 ```
 
 ## 断点续传测试方法

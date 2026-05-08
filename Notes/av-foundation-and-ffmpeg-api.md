@@ -1,10 +1,11 @@
 # 音视频基础理论与 FFmpeg API 知识库
 
-本文档用于整理音视频开发入门阶段最常见的基础概念，并结合 `Demos/AV-YUV420P-Player`、`Demos/AV-Easy-Player` 和 `Demos/AV-Transcoder` 三个学习项目说明原始视频显示、播放器解码渲染和转码封装中会用到的核心知识点与 FFmpeg API。
+本文档用于整理音视频开发入门阶段最常见的基础概念，并结合 `AV-Demos/AV-YUV420P-Player`、`AV-Demos/AV-Demux-Extractor`、`AV-Demos/AV-Easy-Player` 和 `AV-Demos/AV-Transcoder` 四个学习项目说明原始视频显示、媒体解封装、播放器解码渲染和转码封装中会用到的核心知识点与 FFmpeg API。
 
-这三个 Demo 可以按由浅到深的顺序理解：
+这几个 Demo 可以按由浅到深的顺序理解：
 
 - `AV-YUV420P-Player`：不涉及 FFmpeg，直接读取 YUV420P 裸帧并用 SDL2 显示，帮助理解原始视频帧和 YUV 纹理。
+- `AV-Demux-Extractor`：使用 FFmpeg 只做解封装和裸流提取，帮助理解容器、编码格式、`AVPacket`、H.264 Annex-B 和 AAC ADTS。
 - `AV-Easy-Player`：使用 FFmpeg 解封装和解码，再用 SDL2 播放音频、渲染视频，帮助理解播放器主链路。
 - `AV-Transcoder`：在解码之后继续进行格式转换、编码和 MP4 封装，帮助理解从播放器到转码器的能力扩展。
 
@@ -858,17 +859,21 @@ H.264 / H.265 / AAC / MP3 = 编码方式
 2. 理解 RGB、YUV、YUV420P 和像素格式转换。
 3. 运行 `AV-YUV420P-Player`，观察裸 YUV 文件如何按宽高和帧率显示。
 4. 理解封装格式和编码格式的区别。
-5. 学习 FFmpeg 的 `AVFormatContext`、`AVStream`、`AVPacket`、`AVFrame`。
-6. 运行 `AV-Easy-Player`，理解解封装、解码、重采样、像素格式转换和 SDL2 播放渲染。
-7. 学习时间戳、time_base、PTS、DTS 和音视频同步。
-8. 运行 `AV-Transcoder`，理解解码后的 `AVFrame` 如何继续送入编码器并封装为 MP4。
-9. 学习 seek、滤镜、硬件加速、录制、推流等进阶主题。
+5. 运行 `AV-Demux-Extractor`，理解 MP4 解封装后如何直接得到压缩态 `AVPacket`。
+6. 学习 FFmpeg 的 `AVFormatContext`、`AVStream`、`AVPacket`、`AVFrame`。
+7. 运行 `AV-Easy-Player`，理解解封装、解码、重采样、像素格式转换和 SDL2 播放渲染。
+8. 学习时间戳、time_base、PTS、DTS 和音视频同步。
+9. 运行 `AV-Transcoder`，理解解码后的 `AVFrame` 如何继续送入编码器并封装为 MP4。
+10. 学习 seek、滤镜、硬件加速、录制、推流等进阶主题。
 
-这三个 Demo 对应的学习层次可以概括为：
+这几个 Demo 对应的学习层次可以概括为：
 
 ```text
 AV-YUV420P-Player
   -> 原始视频帧显示：YUV420P -> SDL2 YUV Texture
+
+AV-Demux-Extractor
+  -> 解封装提取链路：封装文件 -> 解封装 -> AVPacket -> H.264/AAC 裸流
 
 AV-Easy-Player
   -> 播放器链路：封装文件 -> 解封装 -> 解码 -> 音频播放 / 视频渲染
@@ -879,9 +884,108 @@ AV-Transcoder
 
 掌握这些内容后，就可以继续扩展到截图、滤镜、录屏工具、直播推流器、HLS 分片器、视频处理工具等更完整的音视频应用。
 
+## 10.1 FLV、H.264 Annex-B 与 AAC ADTS
+
+`Network-Demos/FLV-Parser` 用于学习 FLV 文件结构和裸流导出。FLV 常见于 RTMP 和 HTTP-FLV 场景，直播流中经常承载 H.264 视频和 AAC 音频。
+
+FLV 文件由 Header 和连续的 Tag 组成：
+
+```text
+FLV Header
+PreviousTagSize0
+Tag Header + Tag Data + PreviousTagSize
+Tag Header + Tag Data + PreviousTagSize
+...
+```
+
+常见 Tag 类型：
+
+- `8`：Audio Tag。
+- `9`：Video Tag。
+- `18`：Script/Data Tag，常用于 metadata。
+
+H.264 在 FLV 中通常使用 AVCC 格式，每个 NALU 前面是长度字段；而 `.h264` 裸流常用 Annex-B 格式，每个 NALU 前面是 start code：
+
+```text
+00 00 00 01 + NALU
+```
+
+因此从 FLV 导出 H.264 裸流时，需要把长度前缀改写为 start code，并从 AVC sequence header 中提取 SPS/PPS。
+
+AAC 在 FLV 中通常不带 ADTS 头。导出 `.aac` 文件时，需要根据 AAC sequence header 中的 profile、sample rate index 和 channel config 给每个 AAC raw frame 补 ADTS header。
+
+### 10.2 FLV Tag 细节
+
+FLV Tag Header 固定 11 字节：
+
+```text
+TagType          1 byte
+DataSize         3 bytes
+Timestamp        3 bytes
+TimestampExt     1 byte
+StreamID         3 bytes
+```
+
+Tag 类型：
+
+- Audio Tag：`TagType = 8`。
+- Video Tag：`TagType = 9`。
+- Script Data Tag：`TagType = 18`。
+
+Video Tag 中常见 AVC 数据格式：
+
+```text
+FrameType + CodecID  1 byte
+AVCPacketType        1 byte
+CompositionTime      3 bytes
+AVC payload
+```
+
+`AVCPacketType` 常见取值：
+
+- `0`：AVC sequence header，通常包含 SPS/PPS。
+- `1`：AVC NALU 数据。
+- `2`：AVC end of sequence。
+
+Audio Tag 中常见 AAC 数据格式：
+
+```text
+SoundFormat/SoundRate/SoundSize/SoundType  1 byte
+AACPacketType                              1 byte
+AAC payload
+```
+
+`AACPacketType` 常见取值：
+
+- `0`：AAC sequence header，包含 AudioSpecificConfig。
+- `1`：AAC raw frame。
+
+### 10.3 TS 封装基础
+
+MPEG-TS 常用于 HLS 切片。TS 的特点是固定包长，每个 TS 包 188 字节，适合传输和容错。
+
+TS 基本结构：
+
+```text
+TS packet: 188 bytes
+  -> Header: 4 bytes
+  -> Adaptation Field: optional
+  -> Payload: PES / PSI data
+```
+
+关键概念：
+
+- Sync Byte：固定为 `0x47`，用于包同步。
+- PID：标识 TS 包属于哪一路数据。
+- PAT：Program Association Table，描述节目号到 PMT PID 的映射。
+- PMT：Program Map Table，描述节目中有哪些音视频流以及各自 PID。
+- PES：Packetized Elementary Stream，承载编码后的音视频数据。
+
+HLS 播放器下载 TS 切片后，需要先解析 TS 包，找到 PAT/PMT，再根据 PID 提取音视频 PES，最后送入解码器。学习版 `HLS-Player` 当前先聚焦 M3U8 和切片调度，TS 解封装可以作为下一步扩展。
+
 ## 11. AV-YUV420P-Player 相关知识点
 
-`Demos/AV-YUV420P-Player` 用来学习原始 YUV420P 视频数据如何显示。它没有使用 FFmpeg 解封装或解码，而是直接读取裸 YUV 文件，因此需要用户手动提供宽、高和帧率。
+`AV-Demos/AV-YUV420P-Player` 用来学习原始 YUV420P 视频数据如何显示。它没有使用 FFmpeg 解封装或解码，而是直接读取裸 YUV 文件，因此需要用户手动提供宽、高和帧率。
 
 ### 11.1 裸 YUV 文件为什么需要手动传参
 
@@ -943,7 +1047,7 @@ YUV 播放器的核心链路可以概括为：
 
 ## 12. AV-Transcoder 相关知识点
 
-`Demos/AV-Transcoder` 用来学习最基础的转码链路：输入媒体文件经过解封装、解码、格式转换、编码和封装，最终输出 H.264 + AAC 的 MP4 文件。
+`AV-Demos/AV-Transcoder` 用来学习最基础的转码链路：输入媒体文件经过解封装、解码、格式转换、编码和封装，最终输出 H.264 + AAC 的 MP4 文件。
 
 ### 12.1 转封装、转码与转格式
 
@@ -1033,15 +1137,21 @@ AAC 编码器通常按固定样本数编码，例如一帧 1024 个采样点。�
 
 MP4 对时间戳、全局头和音视频交错比较敏感。学习 Demo 已经包含最小可用处理，但复杂输入、可变帧率、B 帧重排、异常时间戳等生产场景还需要更严谨的时间戳管理。
 
-### 12.5 三个 Demo 中 Frame 的去向
+### 12.5 几个 Demo 中 Frame 的去向
 
-理解三个项目时，可以重点观察 `AVFrame` 的去向：
+理解这些项目时，可以重点观察是否进入 `AVFrame` 阶段：
 
 ```text
 AV-YUV420P-Player:
   文件中的裸 YUV 数据
     -> SDL_UpdateYUVTexture
     -> SDL_RenderPresent
+
+AV-Demux-Extractor:
+  AVPacket
+    -> 不解码，不产生 AVFrame
+    -> H.264: bitstream filter -> out.h264
+    -> AAC: 补 ADTS Header -> out.aac
 
 AV-Easy-Player:
   AVPacket
@@ -1056,4 +1166,4 @@ AV-Transcoder:
     -> 音频：swr_convert -> AVAudioFifo -> 编码器 -> AVPacket -> MP4
 ```
 
-从这个角度看，播放器和转码器的前半段很像，都是“读 packet 并解码成 frame”。区别在后半段：播放器把 frame 交给音频设备和窗口显示，转码器把 frame 交给编码器并写入新文件。
+从这个角度看，`AV-Demux-Extractor` 是最适合理解 `AVPacket` 的项目：它只读 packet 并做必要的码流格式转换，不进入解码器。播放器和转码器的前半段很像，都是“读 packet 并解码成 frame”。区别在后半段：播放器把 frame 交给音频设备和窗口显示，转码器把 frame 交给编码器并写入新文件。
