@@ -1,0 +1,13 @@
+{
+  "name": "p2p-signaling-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal WebSocket signaling server for WebRTC P2P demos.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "latest"
+  }
+}
