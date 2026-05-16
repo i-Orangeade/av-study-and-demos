@@ -2,6 +2,19 @@
 
 本文档用于整理 WebRTC 实时音视频开发需要优先掌握的知识点，并对应后续 `WebRTC-Demos` 下的自研信令服务器、跨网 P2P 穿透、C++ WebRTC 客户端、自定义音视频源和渲染等学习项目。
 
+WebRTC 的知识面和工程实现都比较复杂，学习时不建议只依赖本仓库的笔记和 Demo。更推荐优先阅读官方资料、运行官方 Samples，并结合成熟开源项目理解真实工程中的信令、P2P、SFU、媒体转发、NAT 穿透和部署方式。
+
+推荐资料：
+
+- [WebRTC 官方网站](https://webrtc.org/)：WebRTC 总入口，适合了解标准能力、架构和 Native 开发资料。
+- [MDN WebRTC API](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API)：浏览器 WebRTC API 文档，适合学习 `RTCPeerConnection`、`MediaStream`、`RTCDataChannel` 等接口。
+- [WebRTC 官方 Samples](https://webrtc.github.io/samples/) / [GitHub 仓库](https://github.com/webrtc/samples)：官方浏览器 Demo，适合通过实际页面理解采集、Offer/Answer、ICE 和 DataChannel。
+- [WebRTC Native 源码](https://webrtc.googlesource.com/src)：官方 C++ Native 源码入口，适合深入接口、模块实现和构建方式。
+- [Pion WebRTC](https://github.com/pion/webrtc)：Go 语言 WebRTC 实现，适合学习协议层和服务端 WebRTC。
+- [aiortc](https://github.com/aiortc/aiortc)：Python WebRTC 实现，适合快速实验信令、媒体轨道和 DataChannel。
+- [libdatachannel](https://github.com/paullouisageneau/libdatachannel)：轻量级 C/C++ WebRTC DataChannel 和媒体传输实现。
+- [Janus Gateway](https://github.com/meetecho/janus-gateway)、[mediasoup](https://github.com/versatica/mediasoup)、[LiveKit](https://github.com/livekit/livekit)：适合学习 SFU、会议、直播连麦和生产级实时音视频服务端设计。
+
 ## 1. WebRTC 核心价值与应用场景
 
 WebRTC，Web Real-Time Communication，是一套用于实时音视频和数据传输的技术体系。它最大的价值是把采集、编解码、网络传输、抖动缓冲、丢包恢复、拥塞控制、回声消除等复杂能力封装成可用的实时通信栈。

@@ -46,12 +46,22 @@ av-study-and-demos/
 
 ## WebRTC-Demos
 
-`WebRTC-Demos` 关注实时音视频通信链路，从信令服务器开始，逐步扩展到跨网 P2P 音视频通话。
+`WebRTC-Demos` 主要用于记录 WebRTC 学习路线和少量配套实验。WebRTC 本身工程复杂度很高，相关知识和 Demo 更推荐优先阅读官方资料、浏览器示例和成熟开源仓库，本目录中的内容更适合作为学习过程中的补充笔记和验证入口。
 
 | Demo | 说明 |
 | --- | --- |
 | `P2P-Signaling-Server` | 使用 Node.js + `ws` 实现最小 WebSocket 信令服务器，转发 join、leave、offer、answer 和 candidate。 |
 | `Cpp-WebRTC-Client` | C++ WebRTC Native 客户端学习入口，记录信令接入、PeerConnection、STUN/TURN、自定义音视频源和渲染路线。 |
+
+推荐参考：
+
+- [WebRTC 官方网站](https://webrtc.org/)：理解 WebRTC 能力、架构和 Native 开发入口。
+- [MDN WebRTC API](https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API)：学习浏览器侧 PeerConnection、MediaStream、DataChannel 等 API。
+- [WebRTC 官方 Samples](https://webrtc.github.io/samples/) / [源码仓库](https://github.com/webrtc/samples)：适合通过浏览器 Demo 学习 Offer/Answer、ICE、媒体采集和 DataChannel。
+- [WebRTC Native 源码](https://webrtc.googlesource.com/src)：深入 C++ Native 实现、接口和示例工程。
+- [Pion WebRTC](https://github.com/pion/webrtc)：Go 语言 WebRTC 实现，适合学习协议层和服务端实时通信。
+- [aiortc](https://github.com/aiortc/aiortc)：Python WebRTC 实现，适合快速实验信令、媒体轨道和数据通道。
+- [Janus Gateway](https://github.com/meetecho/janus-gateway)、[mediasoup](https://github.com/versatica/mediasoup)、[LiveKit](https://github.com/livekit/livekit)：适合学习 SFU、会议、直播连麦和生产级实时音视频服务端设计。
 
 ## Notes
 
@@ -71,7 +81,7 @@ av-study-and-demos/
 6. 学习 `FLV-Parser`、`RTMP-Handshake`、`HTTP-FLV-Player`，理解直播流中的 FLV 和 RTMP/HTTP-FLV 链路。
 7. 学习 `M3U8-Parser` 和 `HLS-Player`，理解 HLS playlist、切片和调度。
 8. 学习 `RTSP-Client` 和 `RTP-Packet-Parser`，理解 RTSP 控制协议和 RTP 媒体传输。
-9. 最后进入 `WebRTC-Demos`，从自研信令服务、SDP/ICE 交换到 C++ WebRTC Native 客户端。
+9. 最后学习 WebRTC 时，优先结合官方文档、官方 Samples 和成熟开源项目，再用 `WebRTC-Demos` 记录信令、SDP/ICE 和 C++ Native 客户端实验。
 
 ## 环境依赖
 
@@ -126,6 +136,6 @@ cmake --build Network-Demos/RTSP-Client/build
 - 代码优先展示核心链路，不追求完整产品化封装。
 - 网络协议 Demo 尽量手写解析，便于观察协议字段和字节流。
 - FFmpeg/SDL2 Demo 用于理解播放器、转码器和媒体处理工具的基础结构。
-- WebRTC 部分处于逐步扩展阶段，先完成信令与 P2P 通话路线，再补充 C++ Native 实现细节。
+- WebRTC 部分以学习路线和实验记录为主，核心知识与完整 Demo 更推荐参考官方资料和成熟开源仓库。
 
 后续可以继续补充更完整的协议解析、播放器控制、RTMP/RTSP/RTP 实流处理、HLS 切片下载、WebRTC Native 客户端和跨网联调案例。
